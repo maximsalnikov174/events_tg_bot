@@ -36,6 +36,10 @@ class Event:
             data += f'.{self._year}'
         return data
 
+# FIXME in def _validated_date:
+# надо добавить проверку, когда не указан номер недели, но есть дата -
+# чтобы дата была последним именованным днем месяца.
+
     def _validate_date(self):
         """Проверяет в полях «day_and_month» и «year» вводимую информацию."""
         pattern = r'^(\d{2})(\d{2})$'
@@ -84,14 +88,22 @@ class Event:
     def _get_weekday(self, number=False):
         """Возвращает день недели вида пн-вс. При number=True - число 0-6."""
         if self._year_in_data():
-            weekday = date.weekday(date(ev._year, ev._month, ev._day))
+            weekday = date.weekday(date(*self._y_m_d()))
             return weekday if number else DAY_NAME[weekday]
+
+    def _get_firstday(self, year, month):
+        """Возвращает номер (0-6) первого дня (для нужного месяца и года)."""
+        return date(year, month, 1).weekday()
 
     def _get_days_in_month(self):
         """Возвращает количество дней в указанном месяце."""
         return 29 if (
             calendar.isleap(self._year) and self._month == 2
         ) else MDAYS[self._month]
+
+    def _y_m_d(self):
+        """Возвращает кортеж вида ГГГГ ММ ДД."""
+        return (self._year, self._month, self._day)
 
     def as_view(self):
         """Отображение события вида «1 января 2025г. - день Х».
@@ -116,13 +128,13 @@ class Event:
         4. Общее количество недель в месяце (4-6).
         """
         if not self.special_rule:
-            return None
+            return {}
 
         # Номер искомого дня в недели
         this_weekday = self._get_weekday(True)
 
         # Какой по счёту этот this_weekday в месяце:
-        first_day_of_month = date(self._year, self._month, 1).weekday()
+        first_day_of_month = self._get_firstday(self._year, self._month)
         days_in_first_week = 7 - first_day_of_month  # дней в 1-ой неделе.
         number_of_week = 1 if self._day <= days_in_first_week else (
             (self._day - days_in_first_week - 1) // 7 + 2
@@ -140,7 +152,57 @@ class Event:
             'all_weeks_in_month': all_weeks_in_month
         }
 
+    def _create_rules_for_events_with_special_params(self, last_week=False):
+        """Создает для события со специальными параметрами новую запись."""
+        if date.today().year == int(self.year):  # текущий год == указанному
 
-ev = Event('3011', 'день матери', '2025', True)
+            # если сегодня день - меньше, чем день события:
+            if date.today().timetuple().tm_yday < (
+                date(*self._y_m_d()).timetuple().tm_yday
+            ):
+                pass  # действие не требуется
 
-print(ev.get_events_special_params())
+            # когда года совпадают и надо переписывать системно:
+            next_year = int(self._year) + 1
+            rules = self.get_events_special_params()
+            month = rules['this_month']
+            this_weekday = rules['this_weekday']
+            if last_week:
+                number_of_week_for_this_day = rules['all_weeks_in_month']
+            number_of_week_for_this_day = rules['number_of_week_for_this_day']
+
+            first_day_of_month_in_next_year = self._get_firstday(
+                next_year, month)
+
+            _ = 1 if first_day_of_month_in_next_year >= this_weekday else 0
+            day = 7 * (number_of_week_for_this_day + _) - (
+                first_day_of_month_in_next_year
+            ) + this_weekday - 6
+
+            return Event(
+                f'{day:02d}{month:02d}',
+                self.description,
+                next_year,
+                self.special_rule,
+                self.week_number
+            )
+        return self  # FIXME пока заглушка
+        # return 'это в будущем - ждём' if (
+        #     date.today().year < int(self.year)
+        # ) else 'это в прошлом - укажите дату из будущего'
+
+    def create_rules_for_events_with_special_params(self):
+        """Валидирует и создает событию со спец.параметрами новую запись.
+
+        Если в первоначальной записи указаны специальные правила:
+            - если в записи не указан номер недели - значит последняя неделя.
+        """
+        if self.special_rule:
+            if not self.week_number:
+                self._create_rules_for_events_with_special_params(True)
+            self._create_rules_for_events_with_special_params()
+        return self
+
+
+ev = Event('1901', 'день матери', '2025', True, 3)
+print(ev.create_rules_for_events_with_special_params())
