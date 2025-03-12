@@ -1,6 +1,8 @@
 import calendar
+import logging
 import re
 from datetime import date
+from typing import Union
 
 from constants import DAY_NAME, MAX_YEAR, MDAYS, MIN_YEAR
 from substitutions import get_declension, get_days_declension
@@ -54,6 +56,12 @@ class Event:
         if not (1 <= month <= 12):
             raise ValueError(f'Месяца {month} нет.')
 
+        # В случае, если год не указывается - подставляется текущий год:
+        if not self.year:
+            # today_year = date.today().year
+            # self.year = today_year
+            # logging.WARNING(f'Год не был указан, установлен {today_year}')
+
         if self.year:
             if str(self.year).isdigit():
                 if not MIN_YEAR <= int(self.year) <= MAX_YEAR:
@@ -65,8 +73,9 @@ class Event:
                 raise ValueError(f'Неверный формат года ({self.year})?')
             self._year = int(self.year)
 
+        # Проверка, что указанный день есть в указанном месяце/годе:
         if not (day <= MDAYS[month]):
-            add_year = ''
+            add_year = ''  # Заглушка на случай, когда год не указан.
             added_day = 0
             if self.year:
                 add_year = f'{self.year} года '
@@ -81,31 +90,33 @@ class Event:
         self._month = month
         return self
 
-    def _year_in_data(self):
+    def _year_in_data(self) -> bool:
         """Возвращает True, если в указанной дате есть год."""
         return (True if hasattr(self, '_year') else False)
 
-    def _get_weekday(self, number=False):
+    def _get_weekday(self, number: bool = False) -> Union[str, int]:
         """Возвращает день недели вида пн-вс. При number=True - число 0-6."""
-        if self._year_in_data():
-            weekday = date.weekday(date(*self._y_m_d()))
-            return weekday if number else DAY_NAME[weekday]
+        if not self._year_in_data():
+            raise ValueError('Год не был указан!')
+        # if self._year_in_data():
+        weekday = date.weekday(date(*self._y_m_d()))
+        return weekday if number else DAY_NAME[weekday]
 
-    def _get_firstday(self, year, month):
+    def _get_firstday(self, year, month) -> int:
         """Возвращает номер (0-6) первого дня (для нужного месяца и года)."""
         return date(year, month, 1).weekday()
 
-    def _get_days_in_month(self):
+    def _get_days_in_month(self) -> int:
         """Возвращает количество дней в указанном месяце."""
         return 29 if (
             calendar.isleap(self._year) and self._month == 2
         ) else MDAYS[self._month]
 
-    def _y_m_d(self):
+    def _y_m_d(self) -> tuple[int, int, int]:
         """Возвращает кортеж вида ГГГГ ММ ДД."""
         return (self._year, self._month, self._day)
 
-    def as_view(self):
+    def as_view(self) -> str:
         """Отображение события вида «1 января 2025г. - день Х».
 
         Если указан год - то считается количество прошедших лет.
@@ -178,7 +189,7 @@ class Event:
             day = 7 * (number_of_week_for_this_day + _) - (
                 first_day_of_month_in_next_year
             ) + this_weekday - 6
-
+            return (day, month, next_year)  # заглушка
             return Event(
                 f'{day:02d}{month:02d}',
                 self.description,
@@ -204,5 +215,5 @@ class Event:
         return self
 
 
-ev = Event('1901', 'день матери', '2025', True, 3)
+ev = Event('1901', 'день матери', None, True, 3)
 print(ev.create_rules_for_events_with_special_params())
