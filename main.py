@@ -2,13 +2,16 @@ import os
 import re
 import sqlite3
 from datetime import date
+from typing import Optional, Union
+
 
 from dotenv import load_dotenv
-from telebot import TeleBot
+from telebot import TeleBot, types
 from telebot.types import (ReplyKeyboardMarkup, KeyboardButton,
-                           InlineKeyboardMarkup, InlineKeyboardButton)
+                           InlineKeyboardMarkup)
 
 from function import Event
+from keyboards import NEAREST_DATE_BUTTON, TEST_BUTTON
 from substitutions import get_full_value_declension
 
 
@@ -22,13 +25,13 @@ bot = TeleBot(token=os.getenv('BOT_TOKEN'))
 chat_id = os.getenv('TG_GROUP_ID')
 
 
-def _get_group_or_personal(message):
+def _get_group_or_personal(message) -> Optional[str]:
     """Определяет тип источника запроса и возвращает ID из .env."""
     return os.getenv('TG_THREAD_ID') if message.message_thread_id else None
 
 
-def _send_message(message, some_text, keyboard=None):
-    """Отправляет сообщение либо в чат, либо лично."""
+def _send_message(message, some_text, keyboard=None) -> types.Message:
+    """Отправляет сообщение либо в чат группы, либо лично."""
     bot.send_message(
         chat_id=message.chat.id,
         text=some_text,
@@ -71,14 +74,8 @@ def wake_up(message):
     # button_test = KeyboardButton('/test')
     # keyboard.add(button_next_event, button_test)  # Добавляем кнопки на клаву.
 
-    keyboard_btn = [
-        [InlineKeyboardButton(
-            'Следующее событие',
-            callback_data='nearest_date_command'
-        )],
-        [InlineKeyboardButton('Тест', callback_data='test_me_command')]
-    ]
-    keyboard = InlineKeyboardMarkup(keyboard_btn)
+    keyboard_buttons = [NEAREST_DATE_BUTTON, TEST_BUTTON]
+    keyboard = InlineKeyboardMarkup(keyboard_buttons)
     _send_message(message, 'Привет! Нажми нужную кнопку.', keyboard)
 
 
