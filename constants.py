@@ -23,3 +23,7 @@ MAX_BYTES_FOR_LOG_FILE = 10 ** 6
 BACKUP_COUNT = 5
 DATETIME_FORMAT = '%Y-%m-%d_%H-%M-%S'
 LOG_FORMAT = '"%(asctime)s - [%(levelname)s] - %(message)s"'
+
+# Отправка сообщений по расписанию
+MESSAGE_TIME = '09:00'
+OUR_TIMEZONE = 'Asia/Yekaterinburg'
