@@ -2,7 +2,7 @@ import schedule
 import time
 from threading import Thread
 
-from main import run_bot, nearest_date
+from main import run_tg_bot, nearest_date
 
 from constants import MESSAGE_TIME, OUR_TIMEZONE
 
@@ -25,4 +25,4 @@ if __name__ == '__main__':
     scheduler_thread.start()
 
     # Запуск бота, с которым можно взаимодействовать:
-    run_bot()
+    run_tg_bot()
