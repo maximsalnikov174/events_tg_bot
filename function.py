@@ -5,7 +5,7 @@ from datetime import date
 from typing import Union
 
 from constants import DAY_NAME, MAX_YEAR, MDAYS, MIN_YEAR
-from substitutions import get_declension, get_days_declension
+from substitutions import get_declension, get_full_value_declension
 
 
 class Event:
@@ -34,7 +34,7 @@ class Event:
     def __repr__(self):
         """Отображение даты."""
         data = f'{self._day}.{self._month}'
-        if self.__year_in_data():
+        if self._year_in_data():
             data += f'.{self._year}'
         return data
 
@@ -58,20 +58,21 @@ class Event:
 
         # В случае, если год не указывается - подставляется текущий год:
         if not self.year:
-            # today_year = date.today().year
-            # self.year = today_year
-            # logging.WARNING(f'Год не был указан, установлен {today_year}')
+            today_year = date.today().year
+            self.year = today_year
+            logging.warning(
+                f'Год не был указан, будет установлен {today_year} год.'
+            )
 
-        if self.year:
-            if str(self.year).isdigit():
-                if not MIN_YEAR <= int(self.year) <= MAX_YEAR:
-                    raise ValueError(
-                        f'Год {self.year} не подходит. '
-                        f'Диапазон {MIN_YEAR}-{MAX_YEAR}.'
-                    )
-            else:
-                raise ValueError(f'Неверный формат года ({self.year})?')
-            self._year = int(self.year)
+        if str(self.year).isdigit():
+            if not MIN_YEAR <= int(self.year) <= MAX_YEAR:
+                raise ValueError(
+                    f'Год {self.year} не подходит. '
+                    f'Диапазон {MIN_YEAR}-{MAX_YEAR}.'
+                )
+        else:
+            raise ValueError(f'Неверный формат года ({self.year})?')
+        self._year = int(self.year)
 
         # Проверка, что указанный день есть в указанном месяце/годе:
         if not (day <= MDAYS[month]):
@@ -83,8 +84,7 @@ class Event:
                     added_day = 1
             raise ValueError(
                 f'В {get_declension(month, "е", "е")} {add_year}только '
-                f'{MDAYS[month] + added_day}'
-                f'{get_days_declension(MDAYS[month])}'
+                f'{get_full_value_declension(MDAYS[month] + added_day, "days")}'
             )
         self._day = day
         self._month = month
@@ -124,7 +124,10 @@ class Event:
         data = f'{self._day} {get_declension(self._month, "а", "я")}'
         if self._year_in_data():
             year_pass = date.today().year - self._year  # прошло лет
-            return f'{data} - {self.description} ({year_pass} лет)'
+            return (
+                f'{data} - {self.description} '
+                f'({get_full_value_declension(year_pass, "year")})'
+            )
         return f'{data} - {self.description}'
 
     # def __str__(self):
@@ -215,5 +218,5 @@ class Event:
         return self
 
 
-ev = Event('1901', 'день матери', None, True, 3)
-print(ev.create_rules_for_events_with_special_params())
+# ev = Event('1901', 'день матери', '2024', True, 3)
+# print(ev.create_rules_for_events_with_special_params())
