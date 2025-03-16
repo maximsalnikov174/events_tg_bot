@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Final
 
 
 MDAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
@@ -27,3 +28,8 @@ LOG_FORMAT = '"%(asctime)s - [%(levelname)s] - %(message)s"'
 # Отправка сообщений по расписанию
 MESSAGE_TIME = '09:00'
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
+
+# Запуск бота через pooling:
+RELOAD_BOT_TIMER: Final[int] = 60
+BOT_POOLING_TIMEOUT: Final[int] = 50
+BOT_POOLING_INTERVAL: Final[int] = 5

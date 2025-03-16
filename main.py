@@ -9,9 +9,12 @@ from telebot import TeleBot, types
 from telebot.types import (ReplyKeyboardMarkup, KeyboardButton,
                            InlineKeyboardMarkup)
 
+from constants import (BOT_POOLING_TIMEOUT, BOT_POOLING_INTERVAL,
+                       RELOAD_BOT_TIMER)
 from function import Event
-from keyboards import NEAREST_DATE_BUTTON, TEST_BUTTON
-from substitutions import get_full_value_declension
+from keyboards import (FUNCTION_FROM_COMMAND, NEAREST_DATE_BUTTON, TEST_BUTTON)
+from substitutions import (get_full_value_declension,
+                           get_full_values_with_declension)
 
 load_dotenv()
 
@@ -71,42 +74,6 @@ def _get_events_from_stack(
     return (minimal_days_delta, events_stack)
 
 
-# СТАРТОВАЯ ФУНКЦИЯ ДЛЯ ОБЩЕНИЯ С БОТОМ:
-# --------------------------------------
-@bot.message_handler(commands=['start'])
-def wake_up(message):
-    """Стартовая функция, запускающая бота с сообщением."""
-
-    # Создаём объект клавиатуры:
-    # keyboard = ReplyKeyboardMarkup(
-    #     resize_keyboard=True
-    # )
-    # button_next_event = KeyboardButton('/next')  # Создаем объект кнопки.
-    # button_test = KeyboardButton('/test')
-    # keyboard.add(button_next_event, button_test)  # Добавляем кнопки на клаву
-
-    keyboard_buttons = [NEAREST_DATE_BUTTON, TEST_BUTTON]
-    keyboard = InlineKeyboardMarkup(keyboard_buttons)
-    _send_message(
-        some_text='Привет! Нажми нужную кнопку.',
-        message=message,
-        keyboard=keyboard,
-        for_group=bool(message.message_thread_id)
-    )
-
-
-# ВЗАИМОДЕЙСТВИЕ С БОТОМ ЧЕРЕЗ КЛАВИАТУРЫ:
-# функция 1
-@bot.message_handler(commands=['test'])
-def test_me(message):
-    """Тестовая функция."""
-    _send_message(
-        'Просто тест!',
-        message=message,
-        for_group=bool(message.message_thread_id)
-    )
-
-
 def _generates_text_for_the_nearest_date():
     """Готовит сообщение о ближайшем событии."""
     # FIXME: не понятно, как работает «', '.join(map(str, events_stack))»
@@ -157,26 +124,33 @@ def _generates_text_for_the_nearest_date():
     return new_message
 
 
-@bot.message_handler(commands=['next'])
-def send_response(message):
-    """В ответ отправляет сообщение о ближайшем событии в ТГ-бот."""
+# Сохранение изменений в базе данных
+# пригодится при записи/перезаписи:
+# conn.commit()
+
+
+# СТАРТОВАЯ ФУНКЦИЯ ДЛЯ ОБЩЕНИЯ С БОТОМ:
+# --------------------------------------
+@bot.message_handler(commands=['start'])
+def wake_up(message):
+    """Стартовая функция, запускающая бота с сообщением."""
+
+    # Создаём объект клавиатуры:
+    # keyboard = ReplyKeyboardMarkup(
+    #     resize_keyboard=True
+    # )
+    # button_next_event = KeyboardButton('/next')  # Создаем объект кнопки.
+    # button_test = KeyboardButton('/test')
+    # keyboard.add(button_next_event, button_test)  # Добавляем кнопки на клаву
+
+    keyboard_buttons = [NEAREST_DATE_BUTTON, TEST_BUTTON]
+    keyboard = InlineKeyboardMarkup(keyboard_buttons)
     _send_message(
-        _generates_text_for_the_nearest_date(),
+        some_text='Привет! Нажми нужную кнопку.',
         message=message,
+        keyboard=keyboard,
         for_group=bool(message.message_thread_id)
     )
-
-
-def nearest_date(for_group=True, **kwargs):
-    """По расписанию отправляет сообщение о ближайшем событии в ТГ-бот."""
-    _send_message(_generates_text_for_the_nearest_date(), for_group=for_group)
-
-
-# Перечень всех рабочих функций, связанных с кнопками:
-FUNCTION_FROM_COMMAND = {
-    'test_me_command': test_me,
-    'nearest_date_command': send_response
-}
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -189,15 +163,51 @@ def handle_callback(call):
         print(f"Неизвестный callback: {call.data}")
 
 
-# Сохранение изменений в базе данных
-# пригодится при записи/перезаписи:
-# conn.commit()
-
-
 def run_tg_bot():
     """Запускает бота и перезапускает, если выскакивает исключение."""
     try:
-        bot.polling(none_stop=True, interval=5, timeout=50)
+        bot.polling(
+            none_stop=True,
+            interval=BOT_POOLING_INTERVAL,
+            timeout=BOT_POOLING_TIMEOUT
+        )
     except Exception as e:
-        print(f'Ошибка {e}. Перезапуск через 1 минуту...')
-        time.sleep(60)
+        print(
+            f'Ошибка {e}.'
+            f'{get_full_values_with_declension(RELOAD_BOT_TIMER)}'
+        )
+        time.sleep(RELOAD_BOT_TIMER)
+        # FIXME проверить, перезапускается ли функция
+
+
+# ВЗАИМОДЕЙСТВИЕ С БОТОМ ЧЕРЕЗ КЛАВИАТУРЫ:
+
+# функция 1
+@bot.message_handler(commands=['test'])
+def test_me(message):
+    """Тестовая функция."""
+    _send_message(
+        'Просто тест!',
+        message=message,
+        for_group=bool(message.message_thread_id)
+    )
+
+
+# функция 2
+@bot.message_handler(commands=['next'])
+def send_response(message):
+    """В ответ на запрос отправляет сообщение о ближайшем событии в ТГ-бот."""
+    _send_message(
+        _generates_text_for_the_nearest_date(),
+        message=message,
+        for_group=bool(message.message_thread_id)
+    )
+
+
+# АВТОМАТИЧЕСКАЯ ОТПРАВКА СООБЩЕНИЙ В ГРУППУ:
+def nearest_date(for_group=True, **kwargs):
+    """По расписанию отправляет сообщение о ближайшем событии в ТГ-бот."""
+    _send_message(
+        _generates_text_for_the_nearest_date(),
+        for_group=for_group
+    )
